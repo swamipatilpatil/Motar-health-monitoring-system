@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0f19">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Industrial Motor Health Monitoring System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-brand">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="9"/>
+                        <path d="M12 3v3m0 12v3M3 12h3m12 0h3"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Industrial Motor Health Monitoring</h1>
+                    <span class="project-tag">College Project Demo</span>
+                </div>
+            </div>
+            <div class="header-status">
+                <button id="enable-notifications-btn" class="notification-btn" title="Click to enable desktop alerts for motor faults">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                    <span id="notif-btn-text">Enable Push Alerts</span>
+                </button>
+                <div class="time-display">
+                    <span id="current-date">--</span>
+                    <span id="current-time" class="time-highlight">--:--:--</span>
+                </div>
+                <div class="status-indicator">
+                    <span class="pulse-dot"></span>
+                    <span class="status-text">SYSTEM ONLINE</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ESP32 Connection Panel -->
+        <section class="connection-panel">
+            <div class="connection-card">
+                <div class="conn-left">
+                    <div class="conn-header">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                            <line x1="12" y1="20" x2="12.01" y2="20"/>
+                        </svg>
+                        <h4>ESP32 Sensor Connection</h4>
+                    </div>
+                    <p class="conn-desc">Enter ESP32 IP address to receive live sensor data from your motor.</p>
+                </div>
+                <div class="conn-controls">
+                    <div class="ip-input-group">
+                        <label for="esp32-ip" class="ip-label">ESP32 IP:</label>
+                        <input type="text" id="esp32-ip" class="ip-input" placeholder="192.168.1.100" value="">
+                        <span class="ip-port">:81</span>
+                    </div>
+                    <button id="connect-btn" class="connect-btn">
+                        <span id="connect-btn-icon" class="conn-icon">⚡</span>
+                        <span id="connect-btn-text">Connect</span>
+                    </button>
+                    <div class="conn-status">
+                        <span id="conn-status-dot" class="conn-dot offline"></span>
+                        <span id="conn-status-text" class="conn-status-label">Disconnected</span>
+                    </div>
+                </div>
+                <div class="mode-toggle-wrap">
+                    <span class="mode-label">Data Source:</span>
+                    <div class="mode-toggle">
+                        <button id="mode-demo" class="mode-btn active" data-source="demo">
+                            <span>🎮</span> Demo Simulation
+                        </button>
+                        <button id="mode-live" class="mode-btn" data-source="live">
+                            <span>📡</span> Live Sensor
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-main">
+            <!-- Emergency Critical Alert Banner -->
+            <div id="critical-alert-banner" class="critical-banner hidden">
+                <div class="banner-content">
+                    <span class="warning-pulse-icon">🚨</span>
+                    <div>
+                        <strong id="critical-banner-title">CRITICAL MOTOR FAULT DETECTED!</strong>
+                        <p id="critical-banner-desc">Temperature or Vibration exceeded safety thresholds. Emergency shutdown recommended.</p>
+                    </div>
+                </div>
+                <button id="dismiss-alert-btn" class="dismiss-btn">Acknowledge Alert</button>
+            </div>
+
+            <!-- Top Summary Banner -->
+            <section class="summary-banner">
+                <div class="banner-card health-summary-card">
+                    <div class="card-header">
+                        <div class="header-left">
+                            <span class="card-icon health-icon">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                                </svg>
+                            </span>
+                            <h2>Overall Motor Health</h2>
+                        </div>
+                        <span id="health-badge" class="badge badge-success">EXCELLENT</span>
+                    </div>
+                    <div class="health-gauge-container">
+                        <div class="gauge-ring">
+                            <svg viewBox="0 0 120 120" class="gauge-svg">
+                                <circle class="gauge-bg" cx="60" cy="60" r="52"/>
+                                <circle id="gauge-progress" class="gauge-fill" cx="60" cy="60" r="52" style="stroke-dashoffset: 16.3;"/>
+                            </svg>
+                            <div class="gauge-center">
+                                <span id="val-health-percent" class="gauge-value">95%</span>
+                                <span class="gauge-label">Condition Index</span>
+                            </div>
+                        </div>
+                        <div class="health-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">Predictive Status</span>
+                                <span id="predictive-status" class="meta-val val-green">No Anomaly Detected</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Est. RUL (Remaining Life)</span>
+                                <span class="meta-val">14,250 Hours</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Maintenance Due</span>
+                                <span class="meta-val">In 45 Days</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="banner-card motor-state-card">
+                    <div class="card-header">
+                        <div class="header-left">
+                            <span class="card-icon status-icon">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                                </svg>
+                            </span>
+                            <h2>Primary Motor Unit</h2>
+                        </div>
+                        <span class="unit-id">ID: MTR-3PH-415V</span>
+                    </div>
+                    <div class="motor-info-grid">
+                        <div class="info-block">
+                            <span class="block-label">Operating State</span>
+                            <div class="state-badge-wrap">
+                                <span id="val-motor-status" class="state-badge running">RUNNING</span>
+                            </div>
+                        </div>
+                        <div class="info-block">
+                            <span class="block-label">Motor Type</span>
+                            <span class="block-val">3-Phase Induction</span>
+                        </div>
+                        <div class="info-block">
+                            <span class="block-label">Rated Power</span>
+                            <span class="block-val">7.5 kW (10 HP)</span>
+                        </div>
+                        <div class="info-block">
+                            <span class="block-label">Current Load Factor</span>
+                            <div class="progress-bar-wrap">
+                                <div class="progress-bar">
+                                    <div id="load-progress-fill" class="progress-fill" style="width: 76%;"></div>
+                                </div>
+                                <span id="val-load-factor" class="progress-text">76%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Key Parameters Grid -->
+            <section class="telemetry-section">
+                <div class="section-title">
+                    <h3>Telemetry Parameters</h3>
+                    <span class="subtext" id="data-source-label">Real-time Readings &amp; Diagnostics — <strong>Demo Mode</strong></span>
+                </div>
+
+                <div class="cards-grid">
+                    <!-- 1. Motor Status -->
+                    <div class="card metric-card">
+                        <div class="card-top">
+                            <div class="metric-info">
+                                <span class="metric-title">Motor Status</span>
+                                <span class="metric-desc">Operational State</span>
+                            </div>
+                            <div class="metric-icon-wrap state-color">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polygon points="10 8 16 12 10 16 10 8"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="metric-main">
+                            <span id="card-motor-status" class="metric-value status-text-normal">NORMAL</span>
+                        </div>
+                        <div class="card-footer">
+                            <span class="footer-label">Duty Cycle:</span>
+                            <span class="footer-val">Continuous (S1)</span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Temperature -->
+                    <div class="card metric-card">
+                        <div class="card-top">
+                            <div class="metric-info">
+                                <span class="metric-title">Temperature</span>
+                                <span class="metric-desc">Stator / Winding</span>
+                            </div>
+                            <div class="metric-icon-wrap temp-color">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="metric-main">
+                            <span id="val-temperature" class="metric-value">42.5</span>
+                            <span class="metric-unit">°C</span>
+                        </div>
+                        <div class="card-footer">
+                            <span class="footer-label">Threshold Limit:</span>
+                            <span class="footer-val">&lt; 75.0 °C</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Vibration -->
+                    <div class="card metric-card">
+                        <div class="card-top">
+                            <div class="metric-info">
+                                <span class="metric-title">Vibration</span>
+                                <span class="metric-desc">Bearing RMS Velocity</span>
+                            </div>
+                            <div class="metric-icon-wrap vibration-color">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M2 12h3l3-9 4 18 4-18 3 9h3"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="metric-main">
+                            <span id="val-vibration" class="metric-value">1.82</span>
+                            <span class="metric-unit">mm/s</span>
+                        </div>
+                        <div class="card-footer">
+                            <span class="footer-label">ISO 10816 Standard:</span>
+                            <span id="vibration-class" class="footer-val text-green">Good (Class I)</span>
+                        </div>
+                    </div>
+
+                    <!-- 4. Current -->
+                    <div class="card metric-card">
+                        <div class="card-top">
+                            <div class="metric-info">
+                                <span class="metric-title">Current</span>
+                                <span class="metric-desc">RMS Stator Current</span>
+                            </div>
+                            <div class="metric-icon-wrap current-color">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="metric-main">
+                            <span id="val-current" class="metric-value">12.4</span>
+                            <span class="metric-unit">A</span>
+                        </div>
+                        <div class="card-footer">
+                            <span class="footer-label">Rated Current:</span>
+                            <span class="footer-val">14.8 A Max</span>
+                        </div>
+                    </div>
+
+                    <!-- 5. Voltage -->
+                    <div class="card metric-card">
+                        <div class="card-top">
+                            <div class="metric-info">
+                                <span class="metric-title">Voltage</span>
+                                <span class="metric-desc">Line-to-Line Potential</span>
+                            </div>
+                            <div class="metric-icon-wrap voltage-color">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="metric-main">
+                            <span id="val-voltage" class="metric-value">415.2</span>
+                            <span class="metric-unit">V</span>
+                        </div>
+                        <div class="card-footer">
+                            <span class="footer-label">Grid Frequency:</span>
+                            <span class="footer-val">50.0 Hz</span>
+                        </div>
+                    </div>
+
+                    <!-- 6. Speed (RPM) -->
+                    <div class="card metric-card">
+                        <div class="card-top">
+                            <div class="metric-info">
+                                <span class="metric-title">RPM</span>
+                                <span class="metric-desc">Rotational Speed</span>
+                            </div>
+                            <div class="metric-icon-wrap rpm-color">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="9"/>
+                                    <path d="M12 12L16 8"/>
+                                    <path d="M12 7a5 5 0 0 1 5 5"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="metric-main">
+                            <span id="val-rpm" class="metric-value">1482</span>
+                            <span class="metric-unit">RPM</span>
+                        </div>
+                        <div class="card-footer">
+                            <span class="footer-label">Synchronous Speed:</span>
+                            <span class="footer-val">1500 RPM</span>
+                        </div>
+                    </div>
+
+                    <!-- 7. Motor Health -->
+                    <div class="card metric-card highlight-card">
+                        <div class="card-top">
+                            <div class="metric-info">
+                                <span class="metric-title">Motor Health</span>
+                                <span class="metric-desc">Calculated Index</span>
+                            </div>
+                            <div class="metric-icon-wrap health-color">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                    <path d="M9 12l2 2 4-4"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="metric-main">
+                            <span id="card-val-health" class="metric-value">95%</span>
+                            <span class="metric-unit text-green" id="card-health-label">GOOD</span>
+                        </div>
+                        <div class="card-footer">
+                            <span class="footer-label">Risk Level:</span>
+                            <span id="risk-level-val" class="footer-val text-green">Low Risk</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Interactive Demo Mode Controls -->
+            <section class="controls-section">
+                <div class="controls-card">
+                    <div class="controls-header">
+                        <div>
+                            <h4>Simulation Controls</h4>
+                            <p class="control-desc">Switch preset modes to test dashboard readings under different motor conditions.</p>
+                        </div>
+                        <button id="toggle-sim-btn" class="sim-toggle-btn active">
+                            <span class="toggle-icon">⏸</span>
+                            <span class="toggle-text">Pause Live Updates</span>
+                        </button>
+                    </div>
+                    <div class="preset-buttons">
+                        <button class="preset-btn active" data-mode="normal">
+                            <span class="btn-dot green"></span> Normal State
+                        </button>
+                        <button class="preset-btn" data-mode="warning">
+                            <span class="btn-dot yellow"></span> High Load / Warning
+                        </button>
+                        <button class="preset-btn" data-mode="fault">
+                            <span class="btn-dot red"></span> Critical Fault Demo
+                        </button>
+                    </div>
+                    <div class="sound-controls">
+                        <label for="sound-selector" class="sound-label">🔊 Alert Sound Style:</label>
+                        <select id="sound-selector" class="sound-select">
+                            <option value="industrial_beep" selected>Industrial Double Beep (Beep-Beep)</option>
+                            <option value="siren">Emergency Alarm Siren</option>
+                            <option value="chime">Soft Resonant Chime</option>
+                        </select>
+                        <button id="test-sound-btn" class="test-sound-btn">▶ Test Sound</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <p>Industrial Motor Health Monitoring System &bull; College Project Frontend Demo</p>
+        </footer>
+
+        <!-- Mobile Phone Bottom Quick Bar (Shown on Smartphones) -->
+        <nav class="mobile-app-bottom-bar">
+            <button class="mobile-nav-btn active" data-mode="normal" title="Normal Operation">
+                <span class="nav-icon">🟢</span>
+                <span class="nav-label">Normal</span>
+            </button>
+            <button class="mobile-nav-btn" data-mode="warning" title="High Load Warning">
+                <span class="nav-icon">🟡</span>
+                <span class="nav-label">Warning</span>
+            </button>
+            <button class="mobile-nav-btn" data-mode="fault" title="Critical Fault Demo">
+                <span class="nav-icon">🔴</span>
+                <span class="nav-label">Fault</span>
+            </button>
+        </nav>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
