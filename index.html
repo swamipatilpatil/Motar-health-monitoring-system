@@ -39,6 +39,13 @@
                     </svg>
                     <span id="notif-btn-text">Enable Push Alerts</span>
                 </button>
+                <button id="alert-settings-btn" class="alert-settings-btn" title="Configure Telegram & WhatsApp Critical Alerts">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span>Message Alerts</span>
+                    <span id="alert-status-badge" class="alert-status-badge off">Off</span>
+                </button>
                 <div class="time-display">
                     <span id="current-date">--</span>
                     <span id="current-time" class="time-highlight">--:--:--</span>
@@ -103,6 +110,7 @@
                     <div>
                         <strong id="critical-banner-title">CRITICAL MOTOR FAULT DETECTED!</strong>
                         <p id="critical-banner-desc">Temperature or Vibration exceeded safety thresholds. Emergency shutdown recommended.</p>
+                        <div id="critical-msg-status" class="critical-msg-status"></div>
                     </div>
                 </div>
                 <button id="dismiss-alert-btn" class="dismiss-btn">Acknowledge Alert</button>
@@ -420,7 +428,139 @@
                 <span class="nav-icon">🔴</span>
                 <span class="nav-label">Fault</span>
             </button>
+            <button class="mobile-nav-btn" id="mobile-alert-btn" title="Configure Message Alerts">
+                <span class="nav-icon">📲</span>
+                <span class="nav-label">Alerts</span>
+            </button>
         </nav>
+    </div>
+
+    <!-- Alert Configuration Modal -->
+    <div id="alert-modal-backdrop" class="modal-backdrop hidden">
+        <div class="alert-modal" role="dialog" aria-labelledby="modal-title">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <span class="modal-icon">📲</span>
+                    <div>
+                        <h3 id="modal-title">Emergency Alert Messaging</h3>
+                        <p class="modal-subtitle">Automatically send real-time phone alerts when motor health becomes Critical</p>
+                    </div>
+                </div>
+                <button id="close-modal-btn" class="modal-close-btn" aria-label="Close modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Telegram Section -->
+                <div class="channel-card">
+                    <div class="channel-header">
+                        <div class="channel-info">
+                            <span class="channel-icon telegram-icon">✈️</span>
+                            <div>
+                                <h4>Telegram Bot Alert</h4>
+                                <span class="channel-tag tag-recommended">Recommended &bull; 100% Free &bull; Instant</span>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="telegram-enable-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="channel-form" id="telegram-form-fields">
+                        <div class="form-group">
+                            <label for="telegram-token-input">Bot Token:</label>
+                            <div class="input-with-help">
+                                <input type="password" id="telegram-token-input" placeholder="e.g. 7123456789:AAH..." autocomplete="off">
+                                <button type="button" id="toggle-token-vis" class="vis-toggle-btn" title="Toggle visibility">👁</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="telegram-chatid-input">Chat ID:</label>
+                            <input type="text" id="telegram-chatid-input" placeholder="e.g. 123456789 or @channel">
+                        </div>
+                        <div class="channel-actions">
+                            <button type="button" id="test-telegram-btn" class="btn-test">
+                                <span>📨</span> Send Test Telegram
+                            </button>
+                            <span id="telegram-test-result" class="test-result-label"></span>
+                        </div>
+                        <div class="setup-hint">
+                            <details>
+                                <summary>How to get Telegram Token &amp; Chat ID (2 mins)</summary>
+                                <ol>
+                                    <li>Open Telegram, search for <strong>@BotFather</strong>, and click Start.</li>
+                                    <li>Send <code>/newbot</code>, choose a bot name &amp; username, and copy the <strong>API Token</strong>.</li>
+                                    <li>Search for your newly created bot in Telegram, open it, and press <strong>/start</strong>.</li>
+                                    <li>Open this link in your browser: <br><code>https://api.telegram.org/bot&lt;YOUR_TOKEN&gt;/getUpdates</code></li>
+                                    <li>Find <code>"chat":{"id": 123456789}</code> &mdash; that number is your <strong>Chat ID</strong>.</li>
+                                </ol>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WhatsApp Section -->
+                <div class="channel-card">
+                    <div class="channel-header">
+                        <div class="channel-info">
+                            <span class="channel-icon whatsapp-icon">💬</span>
+                            <div>
+                                <h4>WhatsApp Alert (CallMeBot)</h4>
+                                <span class="channel-tag">Free Direct WhatsApp Message</span>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="whatsapp-enable-toggle">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="channel-form" id="whatsapp-form-fields">
+                        <div class="form-group">
+                            <label for="whatsapp-phone-input">Phone Number (with Country Code):</label>
+                            <input type="text" id="whatsapp-phone-input" placeholder="e.g. 919876543210 (no + or spaces)">
+                        </div>
+                        <div class="form-group">
+                            <label for="whatsapp-apikey-input">CallMeBot API Key:</label>
+                            <input type="password" id="whatsapp-apikey-input" placeholder="e.g. 123456">
+                        </div>
+                        <div class="channel-actions">
+                            <button type="button" id="test-whatsapp-btn" class="btn-test">
+                                <span>📱</span> Send Test WhatsApp
+                            </button>
+                            <span id="whatsapp-test-result" class="test-result-label"></span>
+                        </div>
+                        <div class="setup-hint">
+                            <details>
+                                <summary>How to get CallMeBot API Key (1 min)</summary>
+                                <ol>
+                                    <li>Save the number <strong>+34 941 01 99 41</strong> in your phone contacts as "CallMeBot".</li>
+                                    <li>Send WhatsApp message: <code>I allow callmebot to send me messages</code> to it.</li>
+                                    <li>Wait 5-10 seconds for CallMeBot's reply containing your <strong>API Key</strong>.</li>
+                                </ol>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cooldown & Settings -->
+                <div class="channel-card compact">
+                    <div class="cooldown-row">
+                        <label for="alert-cooldown-select">⏱️ Cooldown Between Messages:</label>
+                        <select id="alert-cooldown-select" class="cooldown-select">
+                            <option value="1">1 Minute (Testing)</option>
+                            <option value="3">3 Minutes</option>
+                            <option value="5" selected>5 Minutes (Recommended)</option>
+                            <option value="10">10 Minutes</option>
+                        </select>
+                    </div>
+                    <p class="cooldown-note">Prevents continuous repeated messages while the motor remains critical. When the motor recovers and faults again, an alert is sent immediately.</p>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" id="modal-save-btn" class="btn-modal-save">💾 Save Settings</button>
+                <button type="button" id="modal-cancel-btn" class="btn-modal-cancel">Close</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

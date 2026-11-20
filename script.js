@@ -161,6 +161,392 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =====================================================================
+    //  EMERGENCY MESSAGE ALERTS SYSTEM (Telegram & WhatsApp)
+    // =====================================================================
+    const alertSettingsBtn = document.getElementById('alert-settings-btn');
+    const mobileAlertBtn = document.getElementById('mobile-alert-btn');
+    const alertStatusBadge = document.getElementById('alert-status-badge');
+    const criticalMsgStatusEl = document.getElementById('critical-msg-status');
+    const alertModalBackdrop = document.getElementById('alert-modal-backdrop');
+    const closeModalBtn = document.getElementById('close-modal-btn');
+    const modalCancelBtn = document.getElementById('modal-cancel-btn');
+    const modalSaveBtn = document.getElementById('modal-save-btn');
+
+    // Telegram Elements
+    const telegramEnableToggle = document.getElementById('telegram-enable-toggle');
+    const telegramFormFields = document.getElementById('telegram-form-fields');
+    const telegramTokenInput = document.getElementById('telegram-token-input');
+    const telegramChatIdInput = document.getElementById('telegram-chatid-input');
+    const toggleTokenVisBtn = document.getElementById('toggle-token-vis');
+    const testTelegramBtn = document.getElementById('test-telegram-btn');
+    const telegramTestResult = document.getElementById('telegram-test-result');
+
+    // WhatsApp Elements
+    const whatsappEnableToggle = document.getElementById('whatsapp-enable-toggle');
+    const whatsappFormFields = document.getElementById('whatsapp-form-fields');
+    const whatsappPhoneInput = document.getElementById('whatsapp-phone-input');
+    const whatsappApiKeyInput = document.getElementById('whatsapp-apikey-input');
+    const testWhatsappBtn = document.getElementById('test-whatsapp-btn');
+    const whatsappTestResult = document.getElementById('whatsapp-test-result');
+
+    const alertCooldownSelect = document.getElementById('alert-cooldown-select');
+
+    // Alert Configuration State
+    let alertConfig = {
+        telegram: { enabled: false, token: '', chatId: '' },
+        whatsapp: { enabled: false, phone: '', apiKey: '' },
+        cooldownMinutes: 5
+    };
+
+    let lastExternalAlertTime = 0;
+    let isCurrentlyCritical = false;
+
+    // Load Alert Config from LocalStorage
+    function loadAlertConfig() {
+        try {
+            const saved = localStorage.getItem('motor_alert_config');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                alertConfig = {
+                    telegram: { ...alertConfig.telegram, ...(parsed.telegram || {}) },
+                    whatsapp: { ...alertConfig.whatsapp, ...(parsed.whatsapp || {}) },
+                    cooldownMinutes: parsed.cooldownMinutes || 5
+                };
+            }
+        } catch (e) {
+            console.error('Error loading alert config from localStorage:', e);
+        }
+
+        // Sync inputs
+        if (telegramEnableToggle) telegramEnableToggle.checked = alertConfig.telegram.enabled;
+        if (telegramTokenInput) telegramTokenInput.value = alertConfig.telegram.token || '';
+        if (telegramChatIdInput) telegramChatIdInput.value = alertConfig.telegram.chatId || '';
+        if (telegramFormFields) telegramFormFields.classList.toggle('disabled', !alertConfig.telegram.enabled);
+
+        if (whatsappEnableToggle) whatsappEnableToggle.checked = alertConfig.whatsapp.enabled;
+        if (whatsappPhoneInput) whatsappPhoneInput.value = alertConfig.whatsapp.phone || '';
+        if (whatsappApiKeyInput) whatsappApiKeyInput.value = alertConfig.whatsapp.apiKey || '';
+        if (whatsappFormFields) whatsappFormFields.classList.toggle('disabled', !alertConfig.whatsapp.enabled);
+
+        if (alertCooldownSelect) alertCooldownSelect.value = String(alertConfig.cooldownMinutes);
+
+        updateAlertStatusBadge();
+    }
+
+    function updateAlertStatusBadge() {
+        const isTgActive = alertConfig.telegram.enabled && Boolean(alertConfig.telegram.token && alertConfig.telegram.chatId);
+        const isWaActive = alertConfig.whatsapp.enabled && Boolean(alertConfig.whatsapp.phone && alertConfig.whatsapp.apiKey);
+        const isActive = isTgActive || isWaActive;
+
+        if (alertStatusBadge) {
+            if (isActive) {
+                alertStatusBadge.textContent = 'Active';
+                alertStatusBadge.className = 'alert-status-badge active';
+            } else {
+                alertStatusBadge.textContent = 'Off';
+                alertStatusBadge.className = 'alert-status-badge off';
+            }
+        }
+
+        if (alertSettingsBtn) {
+            alertSettingsBtn.classList.toggle('active', isActive);
+        }
+    }
+
+    function saveAlertConfig() {
+        alertConfig.telegram.enabled = telegramEnableToggle ? telegramEnableToggle.checked : false;
+        alertConfig.telegram.token = telegramTokenInput ? telegramTokenInput.value.trim() : '';
+        alertConfig.telegram.chatId = telegramChatIdInput ? telegramChatIdInput.value.trim() : '';
+
+        alertConfig.whatsapp.enabled = whatsappEnableToggle ? whatsappEnableToggle.checked : false;
+        alertConfig.whatsapp.phone = whatsappPhoneInput ? whatsappPhoneInput.value.trim().replace(/[^0-9]/g, '') : '';
+        alertConfig.whatsapp.apiKey = whatsappApiKeyInput ? whatsappApiKeyInput.value.trim() : '';
+
+        alertConfig.cooldownMinutes = alertCooldownSelect ? parseInt(alertCooldownSelect.value, 10) || 5 : 5;
+
+        try {
+            localStorage.setItem('motor_alert_config', JSON.stringify(alertConfig));
+        } catch (e) {
+            console.error('Error saving alert config:', e);
+        }
+
+        updateAlertStatusBadge();
+
+        if (modalSaveBtn) {
+            const originalText = modalSaveBtn.innerHTML;
+            modalSaveBtn.innerHTML = '✅ Saved!';
+            setTimeout(() => {
+                modalSaveBtn.innerHTML = originalText;
+                closeAlertModal();
+            }, 600);
+        } else {
+            closeAlertModal();
+        }
+    }
+
+    function openAlertModal() {
+        loadAlertConfig();
+        if (alertModalBackdrop) alertModalBackdrop.classList.remove('hidden');
+    }
+
+    function closeAlertModal() {
+        if (alertModalBackdrop) alertModalBackdrop.classList.add('hidden');
+        if (telegramTestResult) telegramTestResult.textContent = '';
+        if (whatsappTestResult) whatsappTestResult.textContent = '';
+    }
+
+    // Modal Events
+    if (alertSettingsBtn) alertSettingsBtn.addEventListener('click', openAlertModal);
+    if (mobileAlertBtn) mobileAlertBtn.addEventListener('click', openAlertModal);
+    if (closeModalBtn) closeModalBtn.addEventListener('click', closeAlertModal);
+    if (modalCancelBtn) modalCancelBtn.addEventListener('click', closeAlertModal);
+    if (modalSaveBtn) modalSaveBtn.addEventListener('click', saveAlertConfig);
+
+    if (alertModalBackdrop) {
+        alertModalBackdrop.addEventListener('click', (e) => {
+            if (e.target === alertModalBackdrop) closeAlertModal();
+        });
+    }
+
+    // Toggle fields active state
+    if (telegramEnableToggle) {
+        telegramEnableToggle.addEventListener('change', () => {
+            if (telegramFormFields) telegramFormFields.classList.toggle('disabled', !telegramEnableToggle.checked);
+        });
+    }
+
+    if (whatsappEnableToggle) {
+        whatsappEnableToggle.addEventListener('change', () => {
+            if (whatsappFormFields) whatsappFormFields.classList.toggle('disabled', !whatsappEnableToggle.checked);
+        });
+    }
+
+    // Password visibility toggle
+    if (toggleTokenVisBtn && telegramTokenInput) {
+        toggleTokenVisBtn.addEventListener('click', () => {
+            const isPassword = telegramTokenInput.type === 'password';
+            telegramTokenInput.type = isPassword ? 'text' : 'password';
+            toggleTokenVisBtn.textContent = isPassword ? '🙈' : '👁';
+        });
+    }
+
+    // Test Telegram Alert
+    async function executeSendTelegram(token, chatId, text) {
+        const url = `https://api.telegram.org/bot${token}/sendMessage`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: text,
+                parse_mode: 'Markdown'
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+            throw new Error(data.description || `HTTP ${response.status}`);
+        }
+        return data;
+    }
+
+    if (testTelegramBtn) {
+        testTelegramBtn.addEventListener('click', async () => {
+            const token = telegramTokenInput ? telegramTokenInput.value.trim() : '';
+            const chatId = telegramChatIdInput ? telegramChatIdInput.value.trim() : '';
+
+            if (!token || !chatId) {
+                if (telegramTestResult) {
+                    telegramTestResult.textContent = '❌ Enter Token & Chat ID';
+                    telegramTestResult.className = 'test-result-label error';
+                }
+                return;
+            }
+
+            testTelegramBtn.disabled = true;
+            if (telegramTestResult) {
+                telegramTestResult.textContent = '⏳ Sending test...';
+                telegramTestResult.className = 'test-result-label loading';
+            }
+
+            const testMsg =
+`🔔 *TEST ALERT: Motor Health Monitor*
+━━━━━━━━━━━━━━━━━━━━
+✅ Telegram Alert system is connected and working!
+🏭 *Unit:* MTR-3PH-415V
+🕒 *Timestamp:* ${new Date().toLocaleTimeString()}
+🌐 *Live Dashboard:* https://motorhealthmonitor.netlify.app/`;
+
+            try {
+                await executeSendTelegram(token, chatId, testMsg);
+                if (telegramTestResult) {
+                    telegramTestResult.textContent = '✅ Message Delivered!';
+                    telegramTestResult.className = 'test-result-label success';
+                }
+            } catch (err) {
+                console.error('Telegram test error:', err);
+                if (telegramTestResult) {
+                    telegramTestResult.textContent = `❌ Failed: ${err.message}`;
+                    telegramTestResult.className = 'test-result-label error';
+                }
+            } finally {
+                testTelegramBtn.disabled = false;
+            }
+        });
+    }
+
+    // Test WhatsApp Alert (CallMeBot)
+    async function executeSendWhatsApp(phone, apiKey, text) {
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        const encodedText = encodeURIComponent(text);
+        const url = `https://api.callmebot.com/whatsapp.php?phone=${cleanPhone}&text=${encodedText}&apikey=${apiKey}`;
+
+        try {
+            await fetch(url, { mode: 'no-cors' });
+        } catch (e) {
+            const img = new Image();
+            img.src = url;
+        }
+        return true;
+    }
+
+    if (testWhatsappBtn) {
+        testWhatsappBtn.addEventListener('click', async () => {
+            const phone = whatsappPhoneInput ? whatsappPhoneInput.value.trim().replace(/[^0-9]/g, '') : '';
+            const apiKey = whatsappApiKeyInput ? whatsappApiKeyInput.value.trim() : '';
+
+            if (!phone || !apiKey) {
+                if (whatsappTestResult) {
+                    whatsappTestResult.textContent = '❌ Enter Phone & API Key';
+                    whatsappTestResult.className = 'test-result-label error';
+                }
+                return;
+            }
+
+            testWhatsappBtn.disabled = true;
+            if (whatsappTestResult) {
+                whatsappTestResult.textContent = '⏳ Dispatching WhatsApp...';
+                whatsappTestResult.className = 'test-result-label loading';
+            }
+
+            const testMsg =
+`🔔 *TEST ALERT: Motor Health Monitor*\n` +
+`✅ WhatsApp alert system connected!\n` +
+`Unit: MTR-3PH-415V\n` +
+`Time: ${new Date().toLocaleTimeString()}\n` +
+`Dashboard: https://motorhealthmonitor.netlify.app/`;
+
+            try {
+                await executeSendWhatsApp(phone, apiKey, testMsg);
+                if (whatsappTestResult) {
+                    whatsappTestResult.textContent = '✅ Dispatched to WhatsApp!';
+                    whatsappTestResult.className = 'test-result-label success';
+                }
+            } catch (err) {
+                console.error('WhatsApp test error:', err);
+                if (whatsappTestResult) {
+                    whatsappTestResult.textContent = `❌ Error: ${err.message}`;
+                    whatsappTestResult.className = 'test-result-label error';
+                }
+            } finally {
+                testWhatsappBtn.disabled = false;
+            }
+        });
+    }
+
+    // Dispatch Automated Critical Alert Messages
+    async function dispatchCriticalAlerts(data) {
+        const isTgActive = alertConfig.telegram.enabled && Boolean(alertConfig.telegram.token && alertConfig.telegram.chatId);
+        const isWaActive = alertConfig.whatsapp.enabled && Boolean(alertConfig.whatsapp.phone && alertConfig.whatsapp.apiKey);
+
+        if (!isTgActive && !isWaActive) {
+            if (criticalMsgStatusEl && !criticalMsgStatusEl.innerHTML) {
+                criticalMsgStatusEl.innerHTML = `<span class="critical-msg-badge">ℹ️ Message alerts inactive. Click "Message Alerts" to set up Telegram / WhatsApp.</span>`;
+            }
+            return;
+        }
+
+        const now = Date.now();
+        const cooldownMs = (alertConfig.cooldownMinutes || 5) * 60 * 1000;
+
+        if (isCurrentlyCritical && (now - lastExternalAlertTime < cooldownMs)) {
+            const remainingMins = Math.ceil((cooldownMs - (now - lastExternalAlertTime)) / 60000);
+            if (criticalMsgStatusEl && !criticalMsgStatusEl.innerHTML) {
+                criticalMsgStatusEl.innerHTML = `<span class="critical-msg-badge">⏳ Message alert sent. Cooldown: ${remainingMins}m remaining.</span>`;
+            }
+            return;
+        }
+
+        lastExternalAlertTime = now;
+        isCurrentlyCritical = true;
+
+        const timeStr = new Date().toLocaleTimeString();
+        let statusHtml = '';
+
+        // 1. Telegram
+        if (isTgActive) {
+            const tgMsg =
+`🚨 *CRITICAL MOTOR FAULT DETECTED!* 🚨
+━━━━━━━━━━━━━━━━━━━━
+🏭 *Equipment:* Industrial 3-Phase Induction Motor
+🆔 *Unit ID:* MTR-3PH-415V
+❤️ *Health Index:* ${data.health}% (CRITICAL)
+🌡️ *Temperature:* ${data.temp} °C
+〰️ *Vibration:* ${data.vibration} mm/s
+⚡ *Current:* ${data.current} A
+🔌 *Voltage:* ${data.voltage} V
+🔄 *Speed:* ${data.rpm} RPM
+━━━━━━━━━━━━━━━━━━━━
+⚠️ *Status:* Safety threshold breached! Immediate inspection or emergency shutdown recommended.
+🌐 *Live Dashboard:* https://motorhealthmonitor.netlify.app/
+🕒 *Timestamp:* ${timeStr}`;
+
+            try {
+                await executeSendTelegram(alertConfig.telegram.token, alertConfig.telegram.chatId, tgMsg);
+                statusHtml += `<span class="critical-msg-badge success">✈️ Telegram Alert Sent (${timeStr})</span> `;
+            } catch (err) {
+                console.error('Failed to send Telegram alert:', err);
+                statusHtml += `<span class="critical-msg-badge error">⚠️ Telegram Failed (${err.message})</span> `;
+            }
+        }
+
+        // 2. WhatsApp
+        if (isWaActive) {
+            const waMsg =
+`🚨 *CRITICAL MOTOR FAULT DETECTED!*\n` +
+`Unit ID: MTR-3PH-415V\n` +
+`Health: ${data.health}% (CRITICAL)\n` +
+`Temp: ${data.temp}°C | Vib: ${data.vibration} mm/s | Current: ${data.current}A | RPM: ${data.rpm}\n` +
+`Action: Immediate inspection recommended!\n` +
+`Dashboard: https://motorhealthmonitor.netlify.app/\n` +
+`Time: ${timeStr}`;
+
+            try {
+                await executeSendWhatsApp(alertConfig.whatsapp.phone, alertConfig.whatsapp.apiKey, waMsg);
+                statusHtml += `<span class="critical-msg-badge success">💬 WhatsApp Alert Dispatched (${timeStr})</span> `;
+            } catch (err) {
+                console.error('Failed to send WhatsApp alert:', err);
+                statusHtml += `<span class="critical-msg-badge error">⚠️ WhatsApp Failed</span> `;
+            }
+        }
+
+        if (criticalMsgStatusEl) {
+            criticalMsgStatusEl.innerHTML = statusHtml;
+        }
+    }
+
+    function resetCriticalIncident() {
+        if (isCurrentlyCritical) {
+            isCurrentlyCritical = false;
+            lastExternalAlertTime = 0;
+            if (criticalMsgStatusEl) criticalMsgStatusEl.innerHTML = '';
+        }
+    }
+
+    // Initialize Alert Configuration
+    loadAlertConfig();
+
+    // =====================================================================
     //  CRITICAL ALERT BANNER + CONTINUOUS ALARM
     // =====================================================================
     const criticalBannerEl = document.getElementById('critical-alert-banner');
@@ -248,6 +634,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         startContinuousAlarmSound();
         sendPushNotification("🚨 CRITICAL MOTOR FAULT ALERT!", `HEALTH: ${data.health}% | TEMP: ${data.temp}°C | VIB: ${data.vibration} mm/s | CURRENT: ${data.current}A`);
+        
+        // Dispatch external automated message alerts (Telegram / WhatsApp)
+        dispatchCriticalAlerts(data);
     }
 
     // =====================================================================
@@ -414,6 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (health >= 80) {
             if (criticalBannerEl && !criticalBannerEl.classList.contains('hidden')) criticalBannerEl.classList.add('hidden');
             stopContinuousAlarmSound();
+            resetCriticalIncident();
         } else if (temp > 68 || vibration > 4.5) {
             sendPushNotification("⚠️ Motor High Load Warning", `Temp: ${temp}°C | Vibration: ${vibration} mm/s`);
         }
